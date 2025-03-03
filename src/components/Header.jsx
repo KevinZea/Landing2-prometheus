@@ -20,8 +20,10 @@ function Header() {
             >
                 <Image
                     src={logo}
-                    h="50px"
+                    // h="50px"
+                    boxSize={70}
                     alt="Hotel Logo"
+                    borderRadius="full"
                 />
 
                 <IconButton
