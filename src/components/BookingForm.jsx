@@ -59,7 +59,7 @@ const BookingForm = () => {
 
         try {
             const params = new URLSearchParams({
-                hotelId: 'cm76prt5b00017kb46mvyjgfv',
+                hotelId: 'cm7t3kif80002o301zqozycc0',
                 entryDate: new Date(entryDate).toISOString(),
                 exitDate: new Date(exitDate).toISOString(),
                 adults: adults,
