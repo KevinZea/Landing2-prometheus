@@ -24,9 +24,107 @@ import {
     Checkbox,
     HStack,
     VStack,
+    IconButton,
 } from '@chakra-ui/react';
-import { FaBed, FaCalendarAlt, FaUsers, FaChild, FaSearch, FaDoorOpen } from 'react-icons/fa';
+import { FaBed, FaCalendarAlt, FaUsers, FaChild, FaSearch, FaDoorOpen, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import { format } from 'date-fns';
+
+// Componente de carrusel para las imágenes de habitaciones
+const ImageCarousel = ({ images }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    // Si no hay imágenes, muestra una imagen por defecto
+    if (!images || images.length === 0) {
+        return (
+            <Image
+                src="https://via.placeholder.com/400x300"
+                alt="No hay imagen disponible"
+                height="200px"
+                objectFit="cover"
+            />
+        );
+    }
+
+    const goToPrevious = () => {
+        const isFirstSlide = currentIndex === 0;
+        const newIndex = isFirstSlide ? images.length - 1 : currentIndex - 1;
+        setCurrentIndex(newIndex);
+    };
+
+    const goToNext = () => {
+        const isLastSlide = currentIndex === images.length - 1;
+        const newIndex = isLastSlide ? 0 : currentIndex + 1;
+        setCurrentIndex(newIndex);
+    };
+
+    return (
+        <Box position="relative" height="200px">
+            <Image
+                src={images[currentIndex]?.url || "https://via.placeholder.com/400x300"}
+                alt={`Imagen ${currentIndex + 1} de la habitación`}
+                height="200px"
+                width="100%"
+                objectFit="cover"
+            />
+
+            {/* Controles del carrusel */}
+            {images.length > 1 && (
+                <>
+                    <IconButton
+                        aria-label="Imagen anterior"
+                        icon={<FaChevronLeft />}
+                        size="sm"
+                        position="absolute"
+                        left="2"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        borderRadius="full"
+                        onClick={goToPrevious}
+                        bg="white"
+                        color="green.600"
+                        _hover={{ bg: "green.100" }}
+                    />
+                    <IconButton
+                        aria-label="Siguiente imagen"
+                        icon={<FaChevronRight />}
+                        size="sm"
+                        position="absolute"
+                        right="2"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        borderRadius="full"
+                        onClick={goToNext}
+                        bg="white"
+                        color="green.600"
+                        _hover={{ bg: "green.100" }}
+                    />
+
+                    {/* Indicador de posición */}
+                    <HStack
+                        spacing="1"
+                        position="absolute"
+                        bottom="2"
+                        left="50%"
+                        transform="translateX(-50%)"
+                        justify="center"
+                    >
+                        {images.map((_, index) => (
+                            <Box
+                                key={index}
+                                h="2"
+                                w="2"
+                                borderRadius="full"
+                                bg={index === currentIndex ? "white" : "whiteAlpha.600"}
+                                cursor="pointer"
+                                onClick={() => setCurrentIndex(index)}
+                            />
+                        ))}
+                    </HStack>
+                </>
+            )}
+        </Box>
+    );
+};
 
 const BookingForm = () => {
     const api = import.meta.env.VITE_API_URL;
@@ -286,12 +384,8 @@ const BookingForm = () => {
                                         borderWidth={selectedRooms.includes(room.id) ? '2px' : '1px'}
                                         borderColor={selectedRooms.includes(room.id) ? 'green.400' : 'gray.200'}
                                     >
-                                        <Image
-                                            src={room.photos[0]?.url || 'https://via.placeholder.com/400x300'}
-                                            alt={room.name}
-                                            height="200px"
-                                            objectFit="cover"
-                                        />
+                                        {/* Aquí usamos el componente de carrusel en lugar de una sola imagen */}
+                                        <ImageCarousel images={room.photos} />
                                         <CardBody>
                                             <VStack align="stretch" spacing={3}>
                                                 <Heading size="md" color="green.600">{room.name}</Heading>
