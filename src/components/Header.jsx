@@ -47,6 +47,7 @@ function Header() {
                             smooth={true}
                             duration={500}
                             offset={-70}
+                            onClick={onToggle}
                         >
                             <Button variant="ghost" _hover={{ color: 'accent.500' }}>
                                 {item}
