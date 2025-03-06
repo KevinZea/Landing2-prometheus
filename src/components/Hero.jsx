@@ -2,6 +2,7 @@
 import { Box, Container, Heading, Text, Button, Stack } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
+import { Link } from 'react-scroll';
 
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
@@ -69,14 +70,22 @@ function Hero() {
                         animate={inView ? { opacity: 1, y: 0 } : {}}
                         transition={{ duration: 0.8, delay: 0.4 }}
                     >
-                        <Button
-                            size="lg"
-                            colorScheme="teal"
-                            _hover={{ transform: 'scale(1.05)' }}
-                            transition="all 0.2s"
+                        <Link
+                            to="reserva"
+                            spy={true}
+                            smooth={true}
+                            offset={-50}
+                            duration={500}
                         >
-                            Reserva Ahora
-                        </Button>
+                            <Button
+                                size="lg"
+                                colorScheme="teal"
+                                _hover={{ transform: 'scale(1.05)' }}
+                                transition="all 0.2s"
+                            >
+                                Reserva Ahora
+                            </Button>
+                        </Link>
                     </MotionBox>
                 </Stack>
             </Container>

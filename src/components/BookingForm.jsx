@@ -270,7 +270,7 @@ const BookingForm = () => {
     };
 
     return (
-        <Container maxW="container.xl" py={8}>
+        <Container maxW="container.xl" py={8} id="reserva">
             <Box
                 bg="white"
                 borderRadius="xl"
