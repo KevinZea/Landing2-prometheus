@@ -25,15 +25,129 @@ import {
     HStack,
     VStack,
     IconButton,
+    Alert,
+    AlertIcon,
+    AlertTitle,
+    AlertDescription,
+    Tooltip,
+    Divider,
 } from '@chakra-ui/react';
-import { FaBed, FaCalendarAlt, FaUsers, FaChild, FaSearch, FaDoorOpen, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import { format } from 'date-fns';
+import {
+    FaBed,
+    FaCalendarAlt,
+    FaUsers,
+    FaChild,
+    FaSearch,
+    FaDoorOpen,
+    FaChevronLeft,
+    FaChevronRight,
+    FaExclamationTriangle,
+    FaTag,
+    FaClock,
+    FaInfoCircle
+} from 'react-icons/fa';
+// Función helper para formatear fechas
+const formatDate = (date) => {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
+const formatDateForAPI = (dateString) => {
+    const date = new Date(dateString);
+    return date.toISOString().replace('T', ' ').substring(0, 23);
+};
+
+// Componente para mostrar información de precios dinámicos
+const PricingInfo = ({ room }) => {
+    const { hasSpecialPricing, hasRecurringPricing, specialPrices, recurringPrices, totalPrice, basePrice } = room;
+
+    if (!hasSpecialPricing && !hasRecurringPricing) {
+        return (
+            <Text fontSize="sm" color="gray.600">
+                Precio base: ${basePrice?.toLocaleString()}/noche
+            </Text>
+        );
+    }
+
+    return (
+        <VStack align="stretch" spacing={2}>
+            <HStack justify="space-between" align="center">
+                <Text fontSize="sm" color="gray.600">
+                    Precio base: ${basePrice?.toLocaleString()}/noche
+                </Text>
+                <Tooltip label="Esta habitación tiene precios especiales aplicados">
+                    <Box color="blue.500" cursor="help">
+                        <FaInfoCircle />
+                    </Box>
+                </Tooltip>
+            </HStack>
+
+            {hasSpecialPricing && specialPrices.length > 0 && (
+                <Box>
+                    <Text fontSize="xs" color="blue.600" fontWeight="semibold" mb={1}>
+                        <FaTag style={{ display: 'inline', marginRight: '4px' }} />
+                        Precios Especiales:
+                    </Text>
+                    {specialPrices.slice(0, 2).map((sp, index) => (
+                        <Text key={index} fontSize="xs" color="blue.500">
+                            • ${sp.price?.toLocaleString()}/noche
+                            {sp.reason && ` - ${sp.reason}`}
+                        </Text>
+                    ))}
+                    {specialPrices.length > 2 && (
+                        <Text fontSize="xs" color="gray.500">
+                            +{specialPrices.length - 2} más...
+                        </Text>
+                    )}
+                </Box>
+            )}
+
+            {hasRecurringPricing && recurringPrices.length > 0 && (
+                <Box>
+                    <Text fontSize="xs" color="purple.600" fontWeight="semibold" mb={1}>
+                        <FaClock style={{ display: 'inline', marginRight: '4px' }} />
+                        Precios Recurrentes:
+                    </Text>
+                    {recurringPrices.slice(0, 2).map((rp, index) => (
+                        <Text key={index} fontSize="xs" color="purple.500">
+                            • {rp.name}: ${rp.price?.toLocaleString()}/noche
+                        </Text>
+                    ))}
+                    {recurringPrices.length > 2 && (
+                        <Text fontSize="xs" color="gray.500">
+                            +{recurringPrices.length - 2} más...
+                        </Text>
+                    )}
+                </Box>
+            )}
+        </VStack>
+    );
+};
+
+// Componente para mostrar habitaciones bloqueadas
+const BlockedRoomsAlert = ({ blockedRooms }) => {
+    if (!blockedRooms || blockedRooms.length === 0) return null;
+
+    return (
+        <Alert status="warning" borderRadius="lg" mb={4}>
+            <AlertIcon />
+            <Box>
+                <AlertTitle>Habitaciones con fechas no disponibles</AlertTitle>
+                <AlertDescription>
+                    {blockedRooms.length} habitación(es) tienen fechas bloqueadas en el período seleccionado.
+                </AlertDescription>
+            </Box>
+        </Alert>
+    );
+};
 
 // Componente de carrusel para las imágenes de habitaciones
 const ImageCarousel = ({ images }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
 
-    // Si no hay imágenes, muestra una imagen por defecto
     if (!images || images.length === 0) {
         return (
             <Image
@@ -67,7 +181,6 @@ const ImageCarousel = ({ images }) => {
                 objectFit="cover"
             />
 
-            {/* Controles del carrusel */}
             {images.length > 1 && (
                 <>
                     <IconButton
@@ -99,7 +212,6 @@ const ImageCarousel = ({ images }) => {
                         _hover={{ bg: "green.100" }}
                     />
 
-                    {/* Indicador de posición */}
                     <HStack
                         spacing="1"
                         position="absolute"
@@ -135,7 +247,7 @@ const BookingForm = () => {
     const [adults, setAdults] = useState(1);
     const [children, setChildren] = useState(0);
 
-    const [availableRooms, setAvailableRooms] = useState([]);
+    const [searchResults, setSearchResults] = useState(null);
     const [selectedRooms, setSelectedRooms] = useState([]);
     const [showRooms, setShowRooms] = useState(false);
 
@@ -157,7 +269,7 @@ const BookingForm = () => {
 
         try {
             const params = new URLSearchParams({
-                hotelId: 'cm7t3kif80002o301zqozycc0',
+                hotelId: 'cm76prt5b00017kb46mvyjgfv',
                 entryDate: new Date(entryDate).toISOString(),
                 exitDate: new Date(exitDate).toISOString(),
                 adults: adults,
@@ -167,18 +279,17 @@ const BookingForm = () => {
             const response = await fetch(`${api}/rooms/find?${params}`);
             const data = await response.json();
 
-            if (data.length === 0) {
+            if (data.message) {
                 toast({
-                    title: 'Sin habitaciones disponibles',
-                    description: 'No hay habitaciones disponibles para las fechas seleccionadas',
-                    status: 'warning',
-                    duration: 4000,
+                    title: 'Información de disponibilidad',
+                    description: data.message,
+                    status: 'info',
+                    duration: 5000,
                     isClosable: true,
                 });
-                return;
             }
 
-            setAvailableRooms(data);
+            setSearchResults(data);
             setShowRooms(true);
         } catch (error) {
             toast({
@@ -202,9 +313,11 @@ const BookingForm = () => {
     };
 
     const calculateTotalPrice = () => {
+        if (!searchResults?.availableRooms) return 0;
+
         return selectedRooms.reduce((sum, roomId) => {
-            const room = availableRooms.find(r => r.id === roomId);
-            return sum + room.price;
+            const room = searchResults.availableRooms.find(r => r.id === roomId);
+            return sum + (room?.totalPrice || room?.price || 0);
         }, 0);
     };
 
@@ -224,8 +337,8 @@ const BookingForm = () => {
             const totalPrice = calculateTotalPrice();
 
             const reservationData = {
-                entryDate: format(new Date(entryDate), 'yyyy-MM-dd HH:mm:ss.SSS'),
-                exitDate: format(new Date(exitDate), 'yyyy-MM-dd HH:mm:ss.SSS'),
+                entryDate: formatDateForAPI(entryDate),
+                exitDate: formatDateForAPI(exitDate),
                 price: totalPrice,
                 adults,
                 children,
@@ -254,6 +367,7 @@ const BookingForm = () => {
                 // Resetear formulario
                 setShowRooms(false);
                 setSelectedRooms([]);
+                setSearchResults(null);
                 setCustomerName('');
                 setCustomerEmail('');
                 setCustomerPhone('');
@@ -283,14 +397,13 @@ const BookingForm = () => {
 
                 {/* Formulario de búsqueda */}
                 <Stack spacing={6} direction={{ base: 'column', md: 'row' }} mb={8}>
-                    <FormControl >
+                    <FormControl>
                         <FormLabel>
                             <Flex align="center">
                                 <FaCalendarAlt color="green" />
                                 &nbsp;Fecha de entrada
                             </Flex>
                         </FormLabel>
-
                         <Input
                             type="date"
                             value={entryDate}
@@ -299,14 +412,13 @@ const BookingForm = () => {
                         />
                     </FormControl>
 
-                    <FormControl >
+                    <FormControl>
                         <FormLabel>
                             <Flex align="center">
                                 <FaCalendarAlt color="green" />
                                 &nbsp;Fecha de salida
                             </Flex>
                         </FormLabel>
-
                         <Input
                             type="date"
                             value={exitDate}
@@ -364,78 +476,131 @@ const BookingForm = () => {
                         alignSelf="flex-end"
                         leftIcon={<FaSearch />}
                     >
+                        Buscar
                     </Button>
                 </Stack>
 
-                {/* Visualización de habitaciones disponibles */}
-                {showRooms && (
-                    <>
-                        <VStack spacing={6} align="stretch">
-                            <Heading size="md" color="green.600">
-                                Habitaciones Disponibles
-                            </Heading>
+                {/* Resultados de búsqueda */}
+                {showRooms && searchResults && (
+                    <VStack spacing={6} align="stretch">
+                        {/* Información de resultados */}
+                        <Box bg="gray.50" p={4} borderRadius="lg">
+                            <HStack justify="space-between" wrap="wrap">
+                                <VStack align="start" spacing={1}>
+                                    <Text fontSize="sm" color="gray.600">
+                                        Habitaciones disponibles: <strong>{searchResults.totalAvailable || 0}</strong>
+                                    </Text>
+                                    <Text fontSize="sm" color="gray.600">
+                                        Período: {formatDate(entryDate)} - {formatDate(exitDate)}
+                                    </Text>
+                                </VStack>
+                                <VStack align="end" spacing={1}>
+                                    <Text fontSize="sm" color="gray.600">
+                                        Huéspedes: {adults} adulto(s), {children} niño(s)
+                                    </Text>
+                                    {searchResults.hasBlockedDates && (
+                                        <Badge colorScheme="orange" size="sm">
+                                            <FaExclamationTriangle style={{ marginRight: '4px' }} />
+                                            Algunas fechas bloqueadas
+                                        </Badge>
+                                    )}
+                                </VStack>
+                            </HStack>
+                        </Box>
 
-                            <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap={6}>
-                                {availableRooms.map((room) => (
-                                    <Card
-                                        key={room.id}
-                                        overflow="hidden"
-                                        variant="outline"
-                                        borderWidth={selectedRooms.includes(room.id) ? '2px' : '1px'}
-                                        borderColor={selectedRooms.includes(room.id) ? 'green.400' : 'gray.200'}
-                                    >
-                                        {/* Aquí usamos el componente de carrusel en lugar de una sola imagen */}
-                                        <ImageCarousel images={room.photos} />
-                                        <CardBody>
-                                            <VStack align="stretch" spacing={3}>
-                                                <Heading size="md" color="green.600">{room.name}</Heading>
-                                                <Text color="gray.600" noOfLines={2}>
-                                                    {room.description}
-                                                </Text>
-                                                <HStack justify="space-between">
-                                                    <Badge colorScheme="green">
-                                                        <Flex align="center">
-                                                            <FaBed />&nbsp;{room.capacity} personas
-                                                        </Flex>
-                                                    </Badge>
-                                                    <Badge colorScheme="purple">
-                                                        <Flex align="center">
-                                                            <FaDoorOpen />&nbsp;{room.beds} camas
-                                                        </Flex>
-                                                    </Badge>
-                                                </HStack>
-                                                <Text fontWeight="bold" color="green.600" fontSize="lg">
-                                                    ${room.price.toLocaleString()}/noche
-                                                </Text>
-                                                <Checkbox
-                                                    colorScheme="green"
-                                                    size="lg"
-                                                    isChecked={selectedRooms.includes(room.id)}
-                                                    onChange={() => handleRoomSelection(room.id)}
-                                                >
-                                                    Seleccionar habitación
-                                                </Checkbox>
-                                            </VStack>
-                                        </CardBody>
-                                    </Card>
-                                ))}
-                            </Grid>
+                        {/* Alert para habitaciones bloqueadas */}
+                        <BlockedRoomsAlert blockedRooms={searchResults.blockedRooms} />
 
-                            {selectedRooms.length > 0 && (
-                                <Box bg="green.50" p={6} borderRadius="lg">
-                                    <VStack spacing={4}>
-                                        <Heading size="md" color="green.600">
-                                            Completar Reservación
-                                        </Heading>
+                        {/* Habitaciones disponibles */}
+                        {searchResults.availableRooms && searchResults.availableRooms.length > 0 && (
+                            <>
+                                <Heading size="md" color="green.600">
+                                    Habitaciones Disponibles
+                                </Heading>
 
+                                <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap={6}>
+                                    {searchResults.availableRooms.map((room) => (
+                                        <Card
+                                            key={room.id}
+                                            overflow="hidden"
+                                            variant="outline"
+                                            borderWidth={selectedRooms.includes(room.id) ? '2px' : '1px'}
+                                            borderColor={selectedRooms.includes(room.id) ? 'green.400' : 'gray.200'}
+                                        >
+                                            <ImageCarousel images={room.photos} />
+                                            <CardBody>
+                                                <VStack align="stretch" spacing={3}>
+                                                    <Heading size="md" color="green.600">{room.name}</Heading>
+                                                    <Text color="gray.600" noOfLines={2}>
+                                                        {room.description}
+                                                    </Text>
+
+                                                    <HStack justify="space-between">
+                                                        <Badge colorScheme="green">
+                                                            <Flex align="center">
+                                                                <FaBed />&nbsp;{room.capacity} personas
+                                                            </Flex>
+                                                        </Badge>
+                                                        <Badge colorScheme="purple">
+                                                            <Flex align="center">
+                                                                <FaDoorOpen />&nbsp;{room.beds} camas
+                                                            </Flex>
+                                                        </Badge>
+                                                        {room.hasDynamicPricing && (
+                                                            <Badge colorScheme="blue" variant="outline">
+                                                                <FaTag style={{ marginRight: '2px' }} />
+                                                                Precio especial
+                                                            </Badge>
+                                                        )}
+                                                    </HStack>
+
+                                                    <Divider />
+
+                                                    {/* Información de precios */}
+                                                    <PricingInfo room={room} />
+
+                                                    <Text fontWeight="bold" color="green.600" fontSize="lg">
+                                                        Total: ${(room.totalPrice || room.price)?.toLocaleString()}
+                                                        <Text as="span" fontSize="sm" color="gray.500" fontWeight="normal">
+                                                            {room.totalPrice !== room.basePrice ? ' (precio ajustado)' : ''}
+                                                        </Text>
+                                                    </Text>
+
+                                                    <Checkbox
+                                                        colorScheme="green"
+                                                        size="lg"
+                                                        isChecked={selectedRooms.includes(room.id)}
+                                                        onChange={() => handleRoomSelection(room.id)}
+                                                    >
+                                                        Seleccionar habitación
+                                                    </Checkbox>
+                                                </VStack>
+                                            </CardBody>
+                                        </Card>
+                                    ))}
+                                </Grid>
+                            </>
+                        )}
+
+                        {/* Formulario de reservación */}
+                        {selectedRooms.length > 0 && (
+                            <Box bg="green.50" p={6} borderRadius="lg">
+                                <VStack spacing={4}>
+                                    <Heading size="md" color="green.600">
+                                        Completar Reservación
+                                    </Heading>
+
+                                    <HStack justify="space-between" w="full">
                                         <Text fontWeight="bold">
                                             Habitaciones seleccionadas: {selectedRooms.length}
                                         </Text>
                                         <Text fontWeight="bold" fontSize="lg" color="green.600">
                                             Total a pagar: ${calculateTotalPrice().toLocaleString()}
                                         </Text>
+                                    </HStack>
 
-                                        <FormControl >
+                                    <Stack direction={{ base: 'column', md: 'row' }} spacing={4} w="full">
+                                        <FormControl>
                                             <FormLabel>Nombre completo</FormLabel>
                                             <Input
                                                 value={customerName}
@@ -444,7 +609,7 @@ const BookingForm = () => {
                                                 bg="white"
                                             />
                                         </FormControl>
-                                        <FormControl >
+                                        <FormControl>
                                             <FormLabel>Email</FormLabel>
                                             <Input
                                                 type="email"
@@ -454,7 +619,7 @@ const BookingForm = () => {
                                                 bg="white"
                                             />
                                         </FormControl>
-                                        <FormControl >
+                                        <FormControl>
                                             <FormLabel>Teléfono</FormLabel>
                                             <Input
                                                 value={customerPhone}
@@ -463,19 +628,33 @@ const BookingForm = () => {
                                                 bg="white"
                                             />
                                         </FormControl>
-                                        <Button
-                                            colorScheme="green"
-                                            size="lg"
-                                            width="full"
-                                            onClick={createReservation}
-                                        >
-                                            Confirmar Reservación
-                                        </Button>
-                                    </VStack>
+                                    </Stack>
+
+                                    <Button
+                                        colorScheme="green"
+                                        size="lg"
+                                        width="full"
+                                        onClick={createReservation}
+                                    >
+                                        Confirmar Reservación
+                                    </Button>
+                                </VStack>
+                            </Box>
+                        )}
+
+                        {/* Mensaje cuando no hay habitaciones disponibles */}
+                        {searchResults.availableRooms && searchResults.availableRooms.length === 0 && (
+                            <Alert status="info" borderRadius="lg">
+                                <AlertIcon />
+                                <Box>
+                                    <AlertTitle>No hay habitaciones disponibles</AlertTitle>
+                                    <AlertDescription>
+                                        {searchResults.message || 'No se encontraron habitaciones disponibles para las fechas y capacidad seleccionadas.'}
+                                    </AlertDescription>
                                 </Box>
-                            )}
-                        </VStack>
-                    </>
+                            </Alert>
+                        )}
+                    </VStack>
                 )}
             </Box>
         </Container>
